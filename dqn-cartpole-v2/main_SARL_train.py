@@ -3,19 +3,20 @@
 # RL Training Phase
 # Hengxi
 
-import itertools
+
 import gym
-from agent import Agent
 import numpy as np
-import random
 import torch
 import torch.nn as nn
+import random
+import itertools
+from agent import Agent
 
-MIN_REPLAY_SIZE = 1000
-BUFFER_SIZE = 500000
+# BUFFER_SIZE = 500000
 EPSILON_START = 1.0
 EPSILON_END = 0.02
-EPSILON_DECAY = 10000
+EPSILON_DECAY = 1000
+TARGET_UPDATE_FREQUENCY = 10
 
 env = gym.make("CartPole-v1")
 # env = gym.make("LunarLander-v2")
@@ -32,67 +33,72 @@ agent = Agent(idx=0,
               n_output=n_action,
               mode='train')
 
-# Main Training Loop
+"""Main Training Loop"""
 
-n_episode = 100000
-episode_reward = 0
-REWARD_BUFFER = []
-# for episode_i in range(n_episode):
-for episode_i in itertools.count():
+n_episode = 6000
+n_time_step = 1000
+
+REWARD_BUFFER = np.empty(shape=n_episode)
+for episode_i in range(n_episode):
+# for episode_i in itertools.count():
     epsilon = np.interp(episode_i, [0, EPSILON_DECAY], [EPSILON_START, EPSILON_END])  # interpolation
+    episode_reward = 0
+    for step_i in range(n_time_step):
 
-    random_sample = random.random()
-    if random_sample <= epsilon:
-        a = env.action_space.sample()
-    else:
-        a = agent.online_net.act(s)
+        random_sample = random.random()
+        if random_sample <= epsilon:
+            a = env.action_space.sample()
+        else:
+            a = agent.online_net.act(s)
 
-    s_, r, done, info = env.step(a)  # info will not be used
-    agent.memo.add_memo(s, a, r, done, s_)
-    s = s_
-    episode_reward += r
+        s_, r, done, info = env.step(a)  # info will not be used
+        agent.memo.add_memo(s, a, r, done, s_)
+        s = s_
+        episode_reward += r
 
-    if done:
-        s = env.reset()
-        REWARD_BUFFER.append(episode_reward)
+        if done:
+            # print(step_i,done)
+            s = env.reset()
+            REWARD_BUFFER[episode_i] = episode_reward
+            break
 
-    # After solved, watch it play
-    if len(REWARD_BUFFER) >= 100:
-        if np.mean(REWARD_BUFFER) >= 5000:
+        # After solved, watch it play
+        if np.mean(REWARD_BUFFER[:episode_i]) >= 66:
             while True:
                 a = agent.online_net.act(s)
                 s, r, done, info = env.step(a)
+                print(a)
                 env.render()
 
                 if done:
                     env.reset()
 
-    # Start Gradient Step
-    batch_s, batch_a, batch_r, batch_done, batch_s_ = agent.memo.sample()  # update batch-size amounts of Q
+        # Start Gradient Step
+        batch_s, batch_a, batch_r, batch_done, batch_s_ = agent.memo.sample()  # update batch-size amounts of Q
 
-    # Compute Targets
-    target_q_values = agent.target_net(batch_s_)
-    max_target_q_values = target_q_values.max(dim=1, keepdim=True)[0]  # ?
-    targets = batch_r + agent.GAMMA * (1 - batch_done) * max_target_q_values
+        # Compute Targets
+        target_q_values = agent.target_net(batch_s_)
+        max_target_q_values = target_q_values.max(dim=1, keepdim=True)[0]  # ?
+        targets = batch_r + agent.GAMMA * (1 - batch_done) * max_target_q_values
 
-    # Compute Loss
-    q_values = agent.online_net(batch_s)
+        # Compute Q_values
+        q_values = agent.online_net(batch_s)
 
-    a_q_values = torch.gather(input=q_values, dim=1, index=batch_a)  # ?
+        a_q_values = torch.gather(input=q_values, dim=1, index=batch_a)  # ?
 
-    loss = nn.functional.smooth_l1_loss(a_q_values, targets)
+        # Compute Loss
+        loss = nn.functional.smooth_l1_loss(a_q_values, targets)
 
-    # Gradient Descent
-    agent.optimizer.zero_grad()
-    loss.backward()
-    agent.optimizer.step()
+        # Gradient Descent
+        agent.optimizer.zero_grad()
+        loss.backward()
+        agent.optimizer.step()
 
     # Update target network
-    # if agent.memo.count % agent.TARGET_UPDATE_FREQUENCY == 0:
-    if episode_i % agent.TARGET_UPDATE_FREQUENCY == 0:
-        agent.target_net.load_state_dict(agent.online_net.state_dict())  # ?
+    # if episode_i % 1 == 0:
+    if episode_i % TARGET_UPDATE_FREQUENCY == 0:
+        agent.target_net.load_state_dict(agent.online_net.state_dict())
 
         # Print the training progress
-        #     print("Step: {}".format(agent.memo.count))
-        print("Step: {}".format(episode_i))
-        print("Avg reward: {}".format(np.mean(REWARD_BUFFER)))
+        print("Episode: {}".format(episode_i))
+        print("Avg. Reward: {}".format(np.mean(REWARD_BUFFER[:episode_i])))
