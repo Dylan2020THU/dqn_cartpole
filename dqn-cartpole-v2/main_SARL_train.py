@@ -2,8 +2,8 @@
 # Latest update: 2022-5-11
 # RL Training Phase
 # Hengxi
-import itertools
 
+import itertools
 import gym
 from agent import Agent
 import numpy as np
@@ -13,45 +13,28 @@ import torch.nn as nn
 
 MIN_REPLAY_SIZE = 1000
 BUFFER_SIZE = 500000
+EPSILON_START = 1.0
+EPSILON_END = 0.02
+EPSILON_DECAY = 10000
 
 env = gym.make("CartPole-v1")
-
-num_class_1_agent = 10
-
+# env = gym.make("LunarLander-v2")
+# env = gym.make("BipedalWalker-v3")
 s = env.reset()
 
-# Generate agents
-dim_state = len(s)
+n_state = len(s)
 n_action = env.action_space.n
 
 """Generate agents"""
-# agents_class1 = []
-# for i in range(num_class_1_agent):
-#     agent = Agent(idx=i,
-#                   n_input=dim_state,
-#                   n_output=n_action,
-#                   mode='train')
-#     # agent = Agent(idx=i,
-#     #               n_input=len(obs)+len(obs)+len(env.action_space),
-#     #               n_output=len(env.action_space),
-#     #               mode='train')
-#     agents_class1.append(agent)
 
 agent = Agent(idx=0,
-              n_input=dim_state,
+              n_input=n_state,
               n_output=n_action,
               mode='train')
 
 # Main Training Loop
 
 n_episode = 100000
-n_time_step = 100
-
-EPSILON_START = 1.0
-EPSILON_END = 0.02
-EPSILON_DECAY = 10000
-
-s = env.reset()
 episode_reward = 0
 REWARD_BUFFER = []
 # for episode_i in range(n_episode):
@@ -75,7 +58,7 @@ for episode_i in itertools.count():
 
     # After solved, watch it play
     if len(REWARD_BUFFER) >= 100:
-        if np.mean(REWARD_BUFFER) >= 200000:
+        if np.mean(REWARD_BUFFER) >= 5000:
             while True:
                 a = agent.online_net.act(s)
                 s, r, done, info = env.step(a)
@@ -90,7 +73,6 @@ for episode_i in itertools.count():
     # Compute Targets
     target_q_values = agent.target_net(batch_s_)
     max_target_q_values = target_q_values.max(dim=1, keepdim=True)[0]  # ?
-
     targets = batch_r + agent.GAMMA * (1 - batch_done) * max_target_q_values
 
     # Compute Loss
@@ -110,7 +92,7 @@ for episode_i in itertools.count():
     if episode_i % agent.TARGET_UPDATE_FREQUENCY == 0:
         agent.target_net.load_state_dict(agent.online_net.state_dict())  # ?
 
-    # Print the training progress
-    #     print("Step: {}".format(agent.memo.count))
+        # Print the training progress
+        #     print("Step: {}".format(agent.memo.count))
         print("Step: {}".format(episode_i))
         print("Avg reward: {}".format(np.mean(REWARD_BUFFER)))
