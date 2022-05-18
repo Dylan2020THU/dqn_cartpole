@@ -15,7 +15,7 @@ from agent import Agent
 # BUFFER_SIZE = 500000
 EPSILON_START = 1.0
 EPSILON_END = 0.02
-EPSILON_DECAY = 1000
+EPSILON_DECAY = 100000
 TARGET_UPDATE_FREQUENCY = 10
 
 env = gym.make("CartPole-v1")
@@ -40,11 +40,11 @@ n_time_step = 1000
 
 REWARD_BUFFER = np.empty(shape=n_episode)
 for episode_i in range(n_episode):
-# for episode_i in itertools.count():
-    epsilon = np.interp(episode_i, [0, EPSILON_DECAY], [EPSILON_START, EPSILON_END])  # interpolation
+    # for episode_i in itertools.count():
     episode_reward = 0
     for step_i in range(n_time_step):
-
+        epsilon = np.interp(episode_i * n_time_step + step_i, [0, EPSILON_DECAY],
+                            [EPSILON_START, EPSILON_END])  # interpolation
         random_sample = random.random()
         if random_sample <= epsilon:
             a = env.action_space.sample()
@@ -63,14 +63,17 @@ for episode_i in range(n_episode):
             break
 
         # After solved, watch it play
-        if np.mean(REWARD_BUFFER[:episode_i]) >= 66:
+        if np.mean(REWARD_BUFFER[:episode_i]) >= 50:
+            count = 0
             while True:
                 a = agent.online_net.act(s)
                 s, r, done, info = env.step(a)
-                print(a)
+                print(count,a)
+                count += 1
                 env.render()
 
                 if done:
+                    count = 0
                     env.reset()
 
         # Start Gradient Step
@@ -83,7 +86,6 @@ for episode_i in range(n_episode):
 
         # Compute Q_values
         q_values = agent.online_net(batch_s)
-
         a_q_values = torch.gather(input=q_values, dim=1, index=batch_a)  # ?
 
         # Compute Loss
