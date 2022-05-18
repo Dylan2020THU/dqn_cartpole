@@ -70,7 +70,7 @@ class DQN(nn.Module):
         # nn.Sequential() ?
         self.net = nn.Sequential(
             nn.Linear(in_features, 64),
-            nn.Tanh(),
+            nn.ReLU(),
             nn.Linear(64, dim_output))
 
     def forward(self, x):
@@ -94,7 +94,6 @@ class Agent:
         self.GAMMA = 0.99
         self.learning_rate = 1e-3
         self.MINI_BATCH_SIZE = 32
-        # self.BUFFER_SIZE = 50000
         self.MIN_REPLAY_SIZE = 1000
         self.TARGET_UPDATE_FREQUENCY = 1000
 
