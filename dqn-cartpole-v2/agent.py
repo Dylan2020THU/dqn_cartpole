@@ -10,17 +10,17 @@ import random
 
 
 class ReplayMemory:
-    def __init__(self, dim_s, dim_a):
-        self.dim_s = dim_s
-        self.dim_a = dim_a
+    def __init__(self, n_s, n_a):
+        self.n_s = n_s
+        self.n_a = n_a
 
-        self.MEMORY_SIZE = 1000
+        self.MEMORY_SIZE = 10000
         self.BATCH_SIZE = 64
-        self.all_s = np.empty(shape=(self.MEMORY_SIZE, self.dim_s), dtype=np.float64)
-        self.all_a = np.random.randint(0,2,size=self.MEMORY_SIZE, dtype=np.uint8)
+        self.all_s = np.empty(shape=(self.MEMORY_SIZE, self.n_s), dtype=np.float64)
+        self.all_a = np.random.randint(low=0, high=self.n_a, size=self.MEMORY_SIZE, dtype=np.uint8)
         self.all_r = np.empty(self.MEMORY_SIZE, dtype=np.float64)
-        self.all_done = np.random.randint(0,2,size=self.MEMORY_SIZE, dtype=np.uint8)
-        self.all_s_ = np.empty(shape=(self.MEMORY_SIZE, self.dim_s), dtype=np.float64)
+        self.all_done = np.random.randint(low=0, high=2, size=self.MEMORY_SIZE, dtype=np.uint8)
+        self.all_s_ = np.empty(shape=(self.MEMORY_SIZE, self.n_s), dtype=np.float64)
         self.count = 0
         self.t = 0
 
@@ -63,24 +63,25 @@ class ReplayMemory:
 
 
 class DQN(nn.Module):
-    def __init__(self, dim_input, dim_output):
-        super().__init__()
-        in_features = dim_input  # ?
+    def __init__(self, n_input, n_output):
+        super().__init__()  # Reuse the param of nn.Module
+        in_features = n_input  # ?
 
         # nn.Sequential() ?
         self.net = nn.Sequential(
             nn.Linear(in_features, 64),
-            nn.ReLU(),
-            nn.Linear(64, dim_output))
+            nn.Tanh(),
+            nn.Linear(64, n_output))
 
     def forward(self, x):
         return self.net(x)
 
     def act(self, obs):
-        obs_tensor = torch.as_tensor(obs, dtype=torch.float32)  # ?
+        obs_tensor = torch.as_tensor(obs, dtype=torch.float32)
         q_values = self(obs_tensor.unsqueeze(0))  # ?
-        max_q_index = torch.argmax(q_values, dim=1)[0]  # ?
-        action = max_q_index.detach().item()  # ?
+        # max_q_index = torch.argmax(q_values, dim=1)[0]  # ?
+        max_q_index = torch.argmax(q_values)
+        action = max_q_index.detach().item()  # get the idx of q
         return action
 
 
@@ -93,13 +94,9 @@ class Agent:
 
         self.GAMMA = 0.99
         self.learning_rate = 1e-3
-        self.MINI_BATCH_SIZE = 32
-        self.MIN_REPLAY_SIZE = 1000
-        self.TARGET_UPDATE_FREQUENCY = 1000
+        # self.MIN_REPLAY_SIZE = 1000
 
-        self.memo = ReplayMemory(dim_s=self.n_input, dim_a=self.n_output)
-        self.n_power = 4
-        self.n_channel = 10
+        self.memo = ReplayMemory(n_s=self.n_input, n_a=self.n_output)
 
         # Initialize the replay buffer of agent i
         if self.mode == "train":
