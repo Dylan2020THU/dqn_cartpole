@@ -1,6 +1,5 @@
-# Reinforcement_Learning_Trials
-Some RL experiments are included here.
-Agent warriors, assemble!
+# Deep Q-Network (DQN)
+This project is about the implementations of DQN on OpenAI Gym activities.
 
 
 
